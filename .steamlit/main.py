@@ -1468,11 +1468,11 @@ def buscar_vagas_apollo(nome_empresa):
 
 
 # ─────────────────────────────────────────
-# 8. HISTÓRICO CSV
+# 8. HISTÓRICO — GOOGLE SHEETS + FALLBACK CSV
 # ─────────────────────────────────────────
 
 def carregar_historico(force_reload=False):
-    """Carrega histórico com cache em session_state."""
+    """Carrega histórico do Google Sheets (com fallback para CSV local)."""
     now = time.time()
     cache_valido = (
         not force_reload
@@ -1482,30 +1482,92 @@ def carregar_historico(force_reload=False):
     if cache_valido:
         return st.session_state.historico_cache
 
-    colunas = [
-        "Startup", "Site", "Setor", "Sub_Setor", "Maturidade",
-        "Score_MSW", "Descricao", "Fundadores", "Sinais_Tração",
-        "CNPJ", "Data_Abertura", "Capital_Social", "Municipio",
-        "Headcount", "Stack_Enterprise", "Fonte_Descoberta", "Data_Descoberta"
-    ]
+    df = pd.DataFrame(columns=GSHEET_COLUNAS)
+
+    # Tenta Google Sheets primeiro
+    try:
+        sheet = conectar_gsheets()
+        if sheet:
+            dados = sheet.get_all_records()
+            if dados:
+                df = pd.DataFrame(dados)
+                logger.info(f"Histórico carregado do Google Sheets: {len(df)} empresas")
+            st.session_state.historico_cache = df
+            st.session_state.historico_cache_ts = now
+            return df
+    except Exception as e:
+        logger.error(f"Erro ao ler Google Sheets: {e}", exc_info=True)
+
+    # Fallback: CSV local
     if os.path.exists(HISTORICO_FILE):
         try:
             df = pd.read_csv(HISTORICO_FILE)
+            logger.info(f"Histórico carregado do CSV local (fallback): {len(df)} empresas")
         except Exception as e:
             logger.error(f"Erro ao ler histórico CSV: {e}", exc_info=True)
-            df = pd.DataFrame(columns=colunas)
-    else:
-        df = pd.DataFrame(columns=colunas)
 
     st.session_state.historico_cache = df
     st.session_state.historico_cache_ts = now
     return df
 
 
+def _deduplicar_startups(df):
+    """Deduplicação robusta: por nome normalizado E por domínio do site."""
+    if df.empty:
+        return df
+
+    # Cria chaves de deduplicação
+    df = df.copy()
+    df["_nome_norm"] = df["Startup"].astype(str).str.strip().str.lower()
+    df["_dominio_norm"] = df["Site"].astype(str).apply(
+        lambda x: extrair_dominio(x).lower() if x and x != "nan" else ""
+    )
+
+    # Remove duplicatas por nome
+    df = df.drop_duplicates(subset=["_nome_norm"], keep="first")
+
+    # Remove duplicatas por domínio (se não vazio)
+    mask_com_dominio = df["_dominio_norm"] != ""
+    df_com = df[mask_com_dominio].drop_duplicates(subset=["_dominio_norm"], keep="first")
+    df_sem = df[~mask_com_dominio]
+    df = pd.concat([df_com, df_sem], ignore_index=True)
+
+    # Remove colunas auxiliares
+    df = df.drop(columns=["_nome_norm", "_dominio_norm"], errors="ignore")
+    return df
+
+
 def salvar_no_historico(novas_df):
-    """Salva no histórico com escrita atômica."""
+    """Salva no Google Sheets (com fallback para CSV local). Deduplicação robusta."""
     hist_df = carregar_historico(force_reload=True)
-    df_final = pd.concat([hist_df, novas_df]).drop_duplicates(subset=["Startup"], keep='first')
+    df_final = pd.concat([hist_df, novas_df], ignore_index=True)
+
+    # Deduplicação robusta por nome + domínio
+    df_final = _deduplicar_startups(df_final)
+
+    # Garante que todas as colunas existem
+    for col in GSHEET_COLUNAS:
+        if col not in df_final.columns:
+            df_final[col] = ""
+    df_final = df_final[GSHEET_COLUNAS]
+    df_final = df_final.fillna("")
+
+    # Tenta salvar no Google Sheets
+    try:
+        sheet = conectar_gsheets()
+        if sheet:
+            sheet.clear()
+            sheet.update(
+                [GSHEET_COLUNAS] + df_final.astype(str).values.tolist()
+            )
+            st.session_state.historico_cache = df_final
+            st.session_state.historico_cache_ts = time.time()
+            logger.info(f"Histórico salvo no Google Sheets: {len(df_final)} empresas")
+            return
+    except Exception as e:
+        logger.error(f"Erro ao salvar no Google Sheets: {e}", exc_info=True)
+
+    # Fallback: CSV local
     try:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as tmp:
             df_final.to_csv(tmp, index=False)
@@ -1513,9 +1575,9 @@ def salvar_no_historico(novas_df):
         shutil.move(tmp_path, HISTORICO_FILE)
         st.session_state.historico_cache = df_final
         st.session_state.historico_cache_ts = time.time()
-        logger.info(f"Histórico salvo com {len(df_final)} empresas")
+        logger.info(f"Histórico salvo no CSV local (fallback): {len(df_final)} empresas")
     except Exception as e:
-        logger.error(f"Erro ao salvar histórico: {e}", exc_info=True)
+        logger.error(f"Erro ao salvar histórico CSV: {e}", exc_info=True)
         try:
             os.unlink(tmp_path)
         except Exception:
@@ -1523,10 +1585,20 @@ def salvar_no_historico(novas_df):
 
 
 def obter_dominios_ja_mapeados():
+    """Retorna set de URLs normalizadas E nomes normalizados do histórico."""
     hist = carregar_historico()
-    if hist.empty or "Site" not in hist.columns:
-        return set()
-    return {normalizar_url(s) for s in hist["Site"].dropna() if s}
+    mapeados = set()
+    if hist.empty:
+        return mapeados
+    if "Site" in hist.columns:
+        for s in hist["Site"].dropna():
+            if s:
+                mapeados.add(normalizar_url(str(s)))
+    if "Startup" in hist.columns:
+        for nome in hist["Startup"].dropna():
+            if nome:
+                mapeados.add(str(nome).strip().lower())
+    return mapeados
 
 
 # ─────────────────────────────────────────
@@ -1982,28 +2054,36 @@ def executar_busca(params, status_ph):
     vistas = set()
     candidatos_unicos = []
     for c in candidatos_filtrados:
-        chave = normalizar_url(c["url"])
-        if chave and chave not in vistas:
-            vistas.add(chave)
+        chave_url = normalizar_url(c["url"])
+        chave_nome = c.get("nome", "").strip().lower()
+        if chave_url and chave_url not in vistas:
+            vistas.add(chave_url)
+            if chave_nome:
+                vistas.add(chave_nome)
+            candidatos_unicos.append(c)
+        elif chave_nome and chave_nome not in vistas:
+            vistas.add(chave_nome)
             candidatos_unicos.append(c)
 
     if not candidatos_unicos:
-        return [], {}, "Nenhum resultado encontrado nas fontes para esses parâmetros."
+        return [], {}, "Nenhum resultado encontrado nas fontes para esses parâmetros.", 0
 
-    # ── Filtra empresas já mapeadas ──
-    dominios_existentes = obter_dominios_ja_mapeados()
-    if dominios_existentes:
+    # ── Filtra empresas já mapeadas (por URL e nome) ──
+    ja_mapeados = obter_dominios_ja_mapeados()
+    filtrados_historico = 0
+    if ja_mapeados:
         antes = len(candidatos_unicos)
         candidatos_unicos = [
             c for c in candidatos_unicos
-            if normalizar_url(c["url"]) not in dominios_existentes
+            if normalizar_url(c["url"]) not in ja_mapeados
+            and c.get("nome", "").strip().lower() not in ja_mapeados
         ]
-        filtrados = antes - len(candidatos_unicos)
-        if filtrados > 0:
-            logger.info(f"Filtradas {filtrados} empresas já mapeadas no histórico")
+        filtrados_historico = antes - len(candidatos_unicos)
+        if filtrados_historico > 0:
+            logger.info(f"Filtradas {filtrados_historico} empresas já mapeadas no histórico")
 
     if not candidatos_unicos:
-        return [], {}, "Todas as empresas encontradas já estão no histórico da MSW."
+        return [], {}, "Todas as empresas encontradas já estão no histórico da MSW. Consulte a planilha do Google Sheets para ver os dados já mapeados.", filtrados_historico
 
     # ══════════════════════════════════════════
     # FASE 2: ENRIQUECIMENTO + ANÁLISE PARALELA
@@ -2107,7 +2187,7 @@ def executar_busca(params, status_ph):
                         except Exception as e:
                             logger.error(f"Erro na expansão: {e}")
 
-    return novas_descobertas, erros_api, None
+    return novas_descobertas, erros_api, None, filtrados_historico
 
 
 # ─────────────────────────────────────────
@@ -2380,11 +2460,20 @@ with col_chat:
                 status_ph = st.empty()
                 # Injeta fontes extras do analista nos parâmetros de busca
                 params["fontes_extras"] = st.session_state.get("fontes_extras", [])
-                startups, erros, erro_geral = executar_busca(params, status_ph)
+                startups, erros, erro_geral, filtrados_historico = executar_busca(params, status_ph)
                 status_ph.empty()
 
                 st.session_state.busca_count += 1
                 st.session_state.aguardando_confirmacao = None
+
+                # Aviso de startups já mapeadas
+                if filtrados_historico > 0:
+                    st.info(
+                        f"📋 **{filtrados_historico} startup(s) já mapeada(s)** foram encontradas nesta busca "
+                        f"e não estão listadas abaixo por já constarem na base. "
+                        f"Consulte a [planilha do Google Sheets](https://docs.google.com/spreadsheets/d/{GSHEET_ID}/edit) "
+                        f"para ver todos os dados."
+                    )
 
                 if erro_geral:
                     st.warning(erro_geral)
