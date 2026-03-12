@@ -166,110 +166,263 @@ if not SERPER_KEY:
 client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
 
 # ─────────────────────────────────────────
-# 2. ESTILO VISUAL
+# 2. ESTILO VISUAL — Clean Corporate
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
 html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-    background-color: #f5f7fb;
-    color: #1a1a2e;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: #fafafa;
+    color: #111827;
 }
-.stApp { background-color: #f5f7fb; }
-h1, h2, h3 { font-family: 'DM Serif Display', serif; color: #1a1a2e; }
-
-.stButton>button {
-    border-radius: 6px;
-    background-color: #1a56db;
-    color: #ffffff;
+.stApp { background-color: #fafafa; }
+h1, h2, h3 {
+    font-family: 'Inter', sans-serif;
     font-weight: 600;
-    font-family: 'DM Sans', sans-serif;
-    border: none;
-    transition: all 0.2s ease;
-    font-size: 0.85em;
+    color: #111827;
+    letter-spacing: -0.02em;
 }
-.stButton>button:hover { background-color: #1e429f; }
 
+/* Botões */
+.stButton>button {
+    border-radius: 8px;
+    background-color: #ffffff;
+    color: #374151;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    border: 1px solid #e5e7eb;
+    transition: all 0.15s ease;
+    font-size: 0.85em;
+    padding: 6px 16px;
+}
+.stButton>button:hover {
+    background-color: #f9fafb;
+    border-color: #d1d5db;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+/* Botão primário (ações importantes) */
+.stButton>button[kind="primary"],
+.stFormSubmitButton>button {
+    background-color: #1e40af;
+    color: #ffffff;
+    border: 1px solid #1e40af;
+}
+.stFormSubmitButton>button:hover {
+    background-color: #1e3a8a;
+}
+
+/* Cards de startup */
 .startup-card {
     background: #ffffff;
-    border: 1px solid #dbeafe;
-    border-left: 4px solid #1a56db;
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin-bottom: 10px;
+    border: 1px solid #f3f4f6;
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 12px;
+    transition: all 0.15s ease;
+}
+.startup-card:hover {
+    border-color: #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
+/* Score badge */
+.score-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #dbeafe;
+    color: #1e40af;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.82em;
+    font-weight: 600;
+    min-width: 42px;
+}
+
+/* Pills de métricas */
 .metric-pill {
     display: inline-block;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    color: #1e40af;
-    padding: 2px 10px;
+    background: #f0f9ff;
+    border: 1px solid #e0f2fe;
+    color: #0369a1;
+    padding: 3px 12px;
     border-radius: 20px;
     font-size: 0.76em;
-    margin: 2px 2px 0 0;
+    font-weight: 500;
+    margin: 3px 4px 0 0;
 }
 
+/* Pills de fundadores */
 .founder-pill {
     display: inline-block;
     background: #f0fdf4;
-    border: 1px solid #bbf7d0;
+    border: 1px solid #dcfce7;
     color: #166534;
-    padding: 2px 10px;
+    padding: 3px 12px;
     border-radius: 20px;
     font-size: 0.76em;
-    margin: 2px 2px 0 0;
+    font-weight: 500;
+    margin: 3px 4px 0 0;
 }
 
+/* Pills de fontes */
 .fonte-pill {
     display: inline-block;
-    background: #fefce8;
-    border: 1px solid #fde68a;
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
     color: #92400e;
-    padding: 2px 10px;
+    padding: 3px 12px;
     border-radius: 20px;
     font-size: 0.72em;
-    margin: 2px 2px 0 0;
+    font-weight: 500;
+    margin: 3px 4px 0 0;
 }
 
+/* Pills de erro */
 .erro-pill {
     display: inline-block;
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    color: #c2410c;
-    padding: 2px 10px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    padding: 3px 12px;
     border-radius: 20px;
     font-size: 0.76em;
-    margin: 2px 2px 0 0;
+    font-weight: 500;
+    margin: 3px 4px 0 0;
 }
 
+/* Boas-vindas */
 .boas-vindas {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 8px;
-    padding: 16px 20px;
+    background: #ffffff;
+    border: 1px solid #f3f4f6;
+    border-radius: 12px;
+    padding: 24px 28px;
     margin-bottom: 16px;
 }
 
+/* Header de fase */
 .fase-header {
-    background: #f0f9ff;
-    border: 1px solid #bae6fd;
-    border-radius: 6px;
-    padding: 8px 14px;
-    margin: 10px 0 6px 0;
-    font-size: 0.88em;
-    color: #0369a1;
-    font-weight: 600;
+    background: #f9fafb;
+    border: 1px solid #f3f4f6;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin: 12px 0 8px 0;
+    font-size: 0.85em;
+    color: #374151;
+    font-weight: 500;
 }
 
+/* Header do app */
+.app-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 4px 0 16px 0;
+    border-bottom: 1px solid #f3f4f6;
+    margin-bottom: 20px;
+}
+.app-logo {
+    width: 36px;
+    height: 36px;
+    background: #1e40af;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    flex-shrink: 0;
+}
+.app-title {
+    font-size: 1.15em;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+.app-subtitle {
+    font-size: 0.8em;
+    color: #9ca3af;
+    margin: 2px 0 0 0;
+    font-weight: 400;
+}
+
+/* Avatar do usuário */
+.user-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: #eff6ff;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 600;
+    color: #1e40af;
+}
+
+/* Painel lateral */
+.sidebar-section-title {
+    font-size: 0.72em;
+    font-weight: 600;
+    color: #9ca3af;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 8px 0;
+}
+
+/* Status de fontes */
+.fonte-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 0.82em;
+    color: #374151;
+}
+.fonte-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.fonte-dot.ativa { background: #22c55e; }
+.fonte-dot.inativa { background: #e5e7eb; }
+.fonte-dot.parcial { background: #f59e0b; }
+
+/* Sidebar */
 section[data-testid="stSidebar"] {
     background-color: #ffffff;
-    border-right: 1px solid #dbeafe;
+    border-right: 1px solid #f3f4f6;
 }
 
-hr { border-color: #e5e7eb; }
+/* Chat messages */
+.stChatMessage {
+    border-radius: 10px;
+}
+
+/* Dividers */
+hr {
+    border: none;
+    border-top: 1px solid #f3f4f6;
+    margin: 16px 0;
+}
+
+/* Dataframe */
+.stDataFrame {
+    border-radius: 8px;
+    border: 1px solid #f3f4f6;
+}
+
+/* Chat input */
+.stChatInput>div {
+    border-radius: 10px;
+    border-color: #e5e7eb;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -2218,58 +2371,53 @@ def renderizar_card(startup):
 # 14. INTERFACE
 # ─────────────────────────────────────────
 
-col_logo, col_titulo = st.columns([1, 6])
-with col_logo:
-    if os.path.exists("logo_msw.png"):
-        st.image("logo_msw.png", width=110)
-    else:
-        st.markdown("### MSW")
-with col_titulo:
-    st.markdown("## Agente de Originação MSW")
-    st.markdown(
-        "<span style='color:#6b7280;font-size:0.85em;'>Mapeamento ativo de startups early-stage · "
-        "Busca inteligente multi-fonte</span>",
-        unsafe_allow_html=True
-    )
+usuario_info = st.session_state.get("usuario_atual", {})
+nome_usuario = usuario_info.get("nome", "")
+iniciais = "".join([p[0].upper() for p in nome_usuario.split()[:2]]) if nome_usuario else "U"
 
-st.markdown("<hr>", unsafe_allow_html=True)
+st.markdown(f"""
+<div class="app-header">
+    <div class="app-logo">M</div>
+    <div style="flex:1;">
+        <p class="app-title">MSW Capital</p>
+        <p class="app-subtitle">Intelligence Hub · Originação de startups</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+        <span class="user-avatar">{iniciais}</span>
+        <span style="font-size:0.82em;color:#6b7280;">{sanitizar(nome_usuario)}</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 col_chat, col_lateral = st.columns([3, 1])
 
 # ─── PAINEL LATERAL ───
 with col_lateral:
-    # Info do usuário logado + logout
-    usuario_info = st.session_state.get("usuario_atual", {})
-    if usuario_info:
-        st.markdown(
-            f"<span style='font-size:0.8em;color:#6b7280;'>"
-            f"Logado como <strong>{sanitizar(usuario_info.get('nome', ''))}</strong></span>",
-            unsafe_allow_html=True
-        )
-        if st.button("Sair", use_container_width=True, key="btn_logout"):
-            st.session_state.autenticado = False
-            st.session_state.usuario_atual = None
-            st.session_state.mensagens = []
-            st.rerun()
-        st.markdown("---")
+    # Logout
+    if st.button("Sair", use_container_width=True, key="btn_logout"):
+        st.session_state.autenticado = False
+        st.session_state.usuario_atual = None
+        st.session_state.mensagens = []
+        st.rerun()
 
-    st.markdown("#### Arquivo Geral")
+    st.markdown("---")
+    st.markdown('<p class="sidebar-section-title">Arquivo geral</p>', unsafe_allow_html=True)
     hist = carregar_historico()
     if not hist.empty:
-        st.caption(f"**{len(hist)}** empresas")
+        st.caption(f"**{len(hist)}** empresas mapeadas")
         colunas_display = ["Startup", "Descricao", "Setor"]
         colunas_display = [c for c in colunas_display if c in hist.columns]
-        st.dataframe(hist[colunas_display], width="stretch", hide_index=True)
+        st.dataframe(hist[colunas_display], use_container_width=True, hide_index=True)
         csv = hist.to_csv(index=False).encode('utf-8')
         st.download_button("Exportar CSV", csv, "historico_msw.csv", "text/csv")
     else:
-        st.caption("Nenhuma startup salva ainda.")
+        st.caption("Nenhuma startup mapeada ainda.")
 
     st.markdown("---")
-    st.markdown("#### Fontes de Busca")
+    st.markdown('<p class="sidebar-section-title">Fontes de busca</p>', unsafe_allow_html=True)
     fontes_status = {
         "Google/Serper":  bool(SERPER_KEY),
-        "Apollo (avançado)": bool(APOLLO_KEY),
+        "Apollo":         bool(APOLLO_KEY),
         "BuiltWith":      bool(BUILTWITH_KEY),
         "SimilarWeb":     bool(SIMILARWEB_KEY),
         "ProductHunt":    bool(PRODUCTHUNT_TOKEN),
@@ -2277,30 +2425,35 @@ with col_lateral:
         "ABSTARTUPS":     True,
         "CNPJ.ws":        True,
         "CNAE/Receita":   True,
-        "Portfólios Aceleradoras": True,
+        "Aceleradoras":   True,
     }
     for nome_api, ativa in fontes_status.items():
         if nome_api == "GitHub" and not GITHUB_TOKEN:
-            st.markdown(f"🟡 GitHub (público, rate limitado)", unsafe_allow_html=True)
+            dot_class = "parcial"
         else:
-            icon = "🟢" if ativa else "⚪"
-            st.markdown(f"{icon} {nome_api}", unsafe_allow_html=True)
+            dot_class = "ativa" if ativa else "inativa"
+        st.markdown(
+            f'<div class="fonte-status">'
+            f'<div class="fonte-dot {dot_class}"></div>'
+            f'{nome_api}</div>',
+            unsafe_allow_html=True
+        )
 
     # Mostra fontes do ecossistema
-    with st.expander(f"🏢 Ecossistema ({len(FONTES_ECOSSISTEMA)} fontes)"):
+    with st.expander(f"Ecossistema ({len(FONTES_ECOSSISTEMA)} fontes)"):
         for f in FONTES_ECOSSISTEMA:
-            st.markdown(f"<span style='font-size:0.8em;color:#6b7280;'>· {f['nome']}</span>",
+            st.markdown(f"<span style='font-size:0.78em;color:#9ca3af;'>· {f['nome']}</span>",
                         unsafe_allow_html=True)
 
     st.markdown("---")
 
     # Campo para fontes extras do analista
-    st.markdown("#### Fontes Extras")
+    st.markdown('<p class="sidebar-section-title">Fontes extras</p>', unsafe_allow_html=True)
     st.caption("Sites adicionais para buscar (um por linha)")
     fontes_extras_input = st.text_area(
         "Domínios extras",
-        placeholder="Ex:\ncubonetwork.com\naceleradora.com.br\noutrosite.com",
-        height=100,
+        placeholder="cubonetwork.com\naceleradora.com.br",
+        height=80,
         label_visibility="collapsed",
         key="fontes_extras_input"
     )
@@ -2322,14 +2475,17 @@ with col_lateral:
 with col_chat:
 
     if not st.session_state.mensagens:
-        st.markdown("""
+        nome_bv = st.session_state.get("usuario_atual", {}).get("nome", "")
+        saudacao = f"Olá, {nome_bv}." if nome_bv else "Olá."
+        st.markdown(f"""
         <div class="boas-vindas">
-            <strong style="color:#1a56db;">Olá. Sou o agente de originação da MSW Capital.</strong><br>
-            <span style="color:#374151;font-size:0.95em;">
+            <p style="font-size:1.05em;font-weight:500;color:#111827;margin:0 0 8px 0;">{saudacao}</p>
+            <p style="color:#6b7280;font-size:0.9em;margin:0;line-height:1.6;">
                 Descreva o perfil de startup que deseja mapear — mercado, tecnologia, estágio, 
-                perfil de fundador, região — e eu conduzo a busca por você em múltiplas fontes
-                (Google, LinkedIn, GitHub, Apollo, ProductHunt, ABSTARTUPS, Receita Federal, portfólios de aceleradoras e mais).
-            </span>
+                perfil de fundador, região — e eu conduzo a busca em múltiplas fontes
+                (Google, LinkedIn, GitHub, Apollo, ProductHunt, ABSTARTUPS, Receita Federal, 
+                portfólios de aceleradoras e mais).
+            </p>
         </div>
         """, unsafe_allow_html=True)
 
