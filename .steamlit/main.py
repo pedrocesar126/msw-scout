@@ -54,6 +54,109 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ─────────────────────────────────────────
+# AUTENTICAÇÃO — Login por usuário e senha
+# ─────────────────────────────────────────
+def carregar_usuarios():
+    """Carrega usuários dos Streamlit Secrets ou variáveis de ambiente."""
+    usuarios = {}
+    try:
+        # Tenta carregar do st.secrets (Streamlit Cloud)
+        if hasattr(st, 'secrets') and "usuarios" in st.secrets:
+            for user, dados in st.secrets["usuarios"].items():
+                usuarios[user] = {
+                    "senha": dados["senha"],
+                    "nome": dados.get("nome", user),
+                    "papel": dados.get("papel", "analista"),
+                }
+            return usuarios
+    except Exception:
+        pass
+
+    # Fallback: senha única via variável de ambiente (dev local)
+    senha_unica = os.getenv("APP_PASSWORD", "")
+    if senha_unica:
+        usuarios["admin"] = {
+            "senha": senha_unica,
+            "nome": "Admin",
+            "papel": "admin",
+        }
+    return usuarios
+
+def tela_login():
+    """Exibe tela de login e retorna True se autenticado."""
+    if "autenticado" not in st.session_state:
+        st.session_state.autenticado = False
+        st.session_state.usuario_atual = None
+
+    if st.session_state.autenticado:
+        return True
+
+    usuarios = carregar_usuarios()
+    if not usuarios:
+        # Sem usuários configurados, deixa passar (dev local sem senha)
+        st.session_state.autenticado = True
+        st.session_state.usuario_atual = {"nome": "Dev", "papel": "admin"}
+        return True
+
+    # ── Tela de login ──
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap');
+    .login-container {
+        max-width: 400px;
+        margin: 80px auto;
+        padding: 40px;
+        background: #ffffff;
+        border: 1px solid #dbeafe;
+        border-radius: 12px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+    .login-title {
+        font-family: 'DM Serif Display', serif;
+        color: #1a1a2e;
+        font-size: 1.6em;
+        text-align: center;
+        margin-bottom: 4px;
+    }
+    .login-subtitle {
+        font-family: 'DM Sans', sans-serif;
+        color: #6b7280;
+        font-size: 0.9em;
+        text-align: center;
+        margin-bottom: 24px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
+        st.markdown('<div class="login-title">MSW Capital</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Intelligence Hub — Acesso restrito</div>', unsafe_allow_html=True)
+
+        with st.form("login_form"):
+            usuario_input = st.text_input("Usuário", placeholder="seu.usuario")
+            senha_input = st.text_input("Senha", type="password", placeholder="••••••••")
+            submit = st.form_submit_button("Entrar", use_container_width=True)
+
+        if submit:
+            if usuario_input in usuarios and usuarios[usuario_input]["senha"] == senha_input:
+                st.session_state.autenticado = True
+                st.session_state.usuario_atual = {
+                    "nome": usuarios[usuario_input]["nome"],
+                    "papel": usuarios[usuario_input]["papel"],
+                    "usuario": usuario_input,
+                }
+                st.rerun()
+            else:
+                st.error("Usuário ou senha incorretos.")
+
+    return False
+
+# ── Bloqueia acesso sem login ──
+if not tela_login():
+    st.stop()
+
 if not ANTHROPIC_KEY:
     st.error("⚠️ `ANTHROPIC_API_KEY` não configurada. Configure no arquivo `.env` e reinicie.")
     st.stop()
@@ -2135,6 +2238,21 @@ col_chat, col_lateral = st.columns([3, 1])
 
 # ─── PAINEL LATERAL ───
 with col_lateral:
+    # Info do usuário logado + logout
+    usuario_info = st.session_state.get("usuario_atual", {})
+    if usuario_info:
+        st.markdown(
+            f"<span style='font-size:0.8em;color:#6b7280;'>"
+            f"Logado como <strong>{sanitizar(usuario_info.get('nome', ''))}</strong></span>",
+            unsafe_allow_html=True
+        )
+        if st.button("Sair", use_container_width=True, key="btn_logout"):
+            st.session_state.autenticado = False
+            st.session_state.usuario_atual = None
+            st.session_state.mensagens = []
+            st.rerun()
+        st.markdown("---")
+
     st.markdown("#### Arquivo Geral")
     hist = carregar_historico()
     if not hist.empty:
