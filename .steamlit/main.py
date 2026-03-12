@@ -16,6 +16,8 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from datetime import datetime, date, timedelta
 from urllib.parse import urlparse, quote
+import gspread
+from google.oauth2.service_account import Credentials
 
 # ─────────────────────────────────────────
 # 1. CONFIGURAÇÕES INICIAIS
@@ -45,8 +47,38 @@ BUILTWITH_KEY     = os.getenv("BUILTWITH_API_KEY")
 SIMILARWEB_KEY    = os.getenv("SIMILARWEB_API_KEY")
 PRODUCTHUNT_TOKEN = os.getenv("PRODUCTHUNT_TOKEN")
 GITHUB_TOKEN      = os.getenv("GITHUB_TOKEN")
-HISTORICO_FILE    = "historico_msw.csv"
+HISTORICO_FILE    = "historico_msw.csv"  # fallback local
 MAX_BUSCAS_POR_SESSAO = int(os.getenv("MAX_BUSCAS_POR_SESSAO", "10"))
+
+# ── Google Sheets ──
+GSHEET_ID = "1JzAv71ayieqYS-OlV5gx2185bdQiIy5NI7tJmbPTItE"
+GSHEET_COLUNAS = [
+    "Startup", "Site", "Setor", "Sub_Setor", "Maturidade",
+    "Score_MSW", "Descricao", "Fundadores", "Sinais_Tração",
+    "Data_Abertura", "Headcount", "Stack_Enterprise",
+    "Fonte_Descoberta", "Data_Descoberta"
+]
+
+def conectar_gsheets():
+    """Conecta ao Google Sheets via conta de serviço."""
+    try:
+        if hasattr(st, 'secrets') and "gcp_service_account" in st.secrets:
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            creds = Credentials.from_service_account_info(
+                creds_dict,
+                scopes=[
+                    "https://www.googleapis.com/auth/spreadsheets",
+                    "https://www.googleapis.com/auth/drive",
+                ]
+            )
+            gc = gspread.authorize(creds)
+            return gc.open_by_key(GSHEET_ID).sheet1
+        else:
+            logger.warning("Credenciais Google Sheets não configuradas nos Secrets.")
+            return None
+    except Exception as e:
+        logger.error(f"Erro ao conectar Google Sheets: {e}", exc_info=True)
+        return None
 
 st.set_page_config(
     page_title="MSW Capital — Intelligence Hub",
@@ -1643,7 +1675,7 @@ def buscar_vagas_apollo(nome_empresa):
 # ─────────────────────────────────────────
 
 def carregar_historico(force_reload=False):
-    """Carrega histórico com cache em session_state."""
+    """Carrega histórico do Google Sheets (com fallback para CSV local)."""
     now = time.time()
     cache_valido = (
         not force_reload
@@ -1653,20 +1685,29 @@ def carregar_historico(force_reload=False):
     if cache_valido:
         return st.session_state.historico_cache
 
-    colunas = [
-        "Startup", "Site", "Setor", "Sub_Setor", "Maturidade",
-        "Score_MSW", "Descricao", "Fundadores", "Sinais_Tração",
-        "CNPJ", "Data_Abertura", "Capital_Social", "Municipio",
-        "Headcount", "Stack_Enterprise", "Fonte_Descoberta", "Data_Descoberta"
-    ]
+    df = pd.DataFrame(columns=GSHEET_COLUNAS)
+
+    # Tenta Google Sheets primeiro
+    try:
+        sheet = conectar_gsheets()
+        if sheet:
+            dados = sheet.get_all_records()
+            if dados:
+                df = pd.DataFrame(dados)
+                logger.info(f"Histórico carregado do Google Sheets: {len(df)} empresas")
+            st.session_state.historico_cache = df
+            st.session_state.historico_cache_ts = now
+            return df
+    except Exception as e:
+        logger.error(f"Erro ao ler Google Sheets: {e}", exc_info=True)
+
+    # Fallback: CSV local
     if os.path.exists(HISTORICO_FILE):
         try:
             df = pd.read_csv(HISTORICO_FILE)
+            logger.info(f"Histórico carregado do CSV local (fallback): {len(df)} empresas")
         except Exception as e:
             logger.error(f"Erro ao ler histórico CSV: {e}", exc_info=True)
-            df = pd.DataFrame(columns=colunas)
-    else:
-        df = pd.DataFrame(columns=colunas)
 
     st.session_state.historico_cache = df
     st.session_state.historico_cache_ts = now
@@ -1674,9 +1715,34 @@ def carregar_historico(force_reload=False):
 
 
 def salvar_no_historico(novas_df):
-    """Salva no histórico com escrita atômica."""
+    """Salva no Google Sheets (com fallback para CSV local)."""
     hist_df = carregar_historico(force_reload=True)
     df_final = pd.concat([hist_df, novas_df]).drop_duplicates(subset=["Startup"], keep='first')
+
+    # Garante que todas as colunas existem
+    for col in GSHEET_COLUNAS:
+        if col not in df_final.columns:
+            df_final[col] = ""
+    df_final = df_final[GSHEET_COLUNAS]
+    df_final = df_final.fillna("")
+
+    # Tenta salvar no Google Sheets
+    try:
+        sheet = conectar_gsheets()
+        if sheet:
+            # Limpa a planilha e reescreve tudo (header + dados)
+            sheet.clear()
+            sheet.update(
+                [GSHEET_COLUNAS] + df_final.astype(str).values.tolist()
+            )
+            st.session_state.historico_cache = df_final
+            st.session_state.historico_cache_ts = time.time()
+            logger.info(f"Histórico salvo no Google Sheets: {len(df_final)} empresas")
+            return
+    except Exception as e:
+        logger.error(f"Erro ao salvar no Google Sheets: {e}", exc_info=True)
+
+    # Fallback: CSV local
     try:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as tmp:
             df_final.to_csv(tmp, index=False)
@@ -1684,9 +1750,9 @@ def salvar_no_historico(novas_df):
         shutil.move(tmp_path, HISTORICO_FILE)
         st.session_state.historico_cache = df_final
         st.session_state.historico_cache_ts = time.time()
-        logger.info(f"Histórico salvo com {len(df_final)} empresas")
+        logger.info(f"Histórico salvo no CSV local (fallback): {len(df_final)} empresas")
     except Exception as e:
-        logger.error(f"Erro ao salvar histórico: {e}", exc_info=True)
+        logger.error(f"Erro ao salvar histórico CSV: {e}", exc_info=True)
         try:
             os.unlink(tmp_path)
         except Exception:
@@ -1806,8 +1872,6 @@ Se PASSAR, retorne APENAS este JSON (sem texto antes ou depois):
     "Fit_Tese": "Por que essa startup se encaixa na tese da MSW em 2 linhas",
     "CNPJ": "{cnpj_info.get('cnpj', '')}",
     "Data_Abertura": "{cnpj_info.get('data_abertura', '')}",
-    "Capital_Social": "{cnpj_info.get('capital_social', '')}",
-    "Municipio": "{cnpj_info.get('municipio', '')}/{cnpj_info.get('uf', '')}",
     "Headcount": "{apollo_info.get('headcount', '')}",
     "Stack_Enterprise": "{', '.join(stack_info.get('stack_enterprise', []))}",
     "Fonte_Descoberta": "{fonte_descoberta}"
@@ -2308,15 +2372,10 @@ def renderizar_card(startup):
                 fundadores_html += f'<span class="founder-pill">👤 {sanitizar(parte)}</span> '
 
     pills = ""
-    muni = startup.get("Municipio", "")
-    if muni and muni not in ["/", "", "/"]:
-        pills += f'<span class="metric-pill">📍 {sanitizar(muni)}</span>'
     if startup.get("Headcount"):
         pills += f'<span class="metric-pill">👥 {sanitizar(startup["Headcount"])} pessoas</span>'
     if startup.get("Data_Abertura"):
         pills += f'<span class="metric-pill">📅 Aberta {sanitizar(startup["Data_Abertura"])}</span>'
-    if startup.get("Capital_Social"):
-        pills += f'<span class="metric-pill">💰 R$ {sanitizar(startup["Capital_Social"])}</span>'
     if startup.get("Stack_Enterprise"):
         pills += f'<span class="metric-pill">⚙️ {sanitizar(startup["Stack_Enterprise"])}</span>'
 
@@ -2414,45 +2473,11 @@ with col_lateral:
         st.caption("Nenhuma startup mapeada ainda.")
 
     st.markdown("---")
-    st.markdown('<p class="sidebar-section-title">Fontes de busca</p>', unsafe_allow_html=True)
-    fontes_status = {
-        "Google/Serper":  bool(SERPER_KEY),
-        "Apollo":         bool(APOLLO_KEY),
-        "BuiltWith":      bool(BUILTWITH_KEY),
-        "SimilarWeb":     bool(SIMILARWEB_KEY),
-        "ProductHunt":    bool(PRODUCTHUNT_TOKEN),
-        "GitHub":         bool(GITHUB_TOKEN),
-        "ABSTARTUPS":     True,
-        "CNPJ.ws":        True,
-        "CNAE/Receita":   True,
-        "Aceleradoras":   True,
-    }
-    for nome_api, ativa in fontes_status.items():
-        if nome_api == "GitHub" and not GITHUB_TOKEN:
-            dot_class = "parcial"
-        else:
-            dot_class = "ativa" if ativa else "inativa"
-        st.markdown(
-            f'<div class="fonte-status">'
-            f'<div class="fonte-dot {dot_class}"></div>'
-            f'{nome_api}</div>',
-            unsafe_allow_html=True
-        )
 
-    # Mostra fontes do ecossistema
-    with st.expander(f"Ecossistema ({len(FONTES_ECOSSISTEMA)} fontes)"):
-        for f in FONTES_ECOSSISTEMA:
-            st.markdown(f"<span style='font-size:0.78em;color:#9ca3af;'>· {f['nome']}</span>",
-                        unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # Campo para fontes extras do analista
-    st.markdown('<p class="sidebar-section-title">Fontes extras</p>', unsafe_allow_html=True)
-    st.caption("Sites adicionais para buscar (um por linha)")
+    # Campo para fontes extras do analista (mantido para funcionalidade)
     fontes_extras_input = st.text_area(
-        "Domínios extras",
-        placeholder="cubonetwork.com\naceleradora.com.br",
+        "Fontes extras",
+        placeholder="Sites adicionais (um por linha)\ncubonetwork.com\naceleradora.com.br",
         height=80,
         label_visibility="collapsed",
         key="fontes_extras_input"
@@ -2461,7 +2486,7 @@ with col_lateral:
     if fontes_extras_input:
         _fontes = [l.strip() for l in fontes_extras_input.strip().split("\n") if l.strip()]
         st.session_state.fontes_extras = _fontes
-        st.caption(f"✓ {len(_fontes)} fonte(s) extra(s) configurada(s)")
+        st.caption(f"✓ {len(_fontes)} fonte(s) extra(s)")
     else:
         st.session_state.fontes_extras = []
 
