@@ -2145,50 +2145,19 @@ with col_lateral:
     else:
         st.caption("Nenhuma startup salva ainda.")
 
+    # Fontes extras (mantido para funcionalidade, disponível para todos)
     st.markdown("---")
-    st.markdown("#### Fontes de Busca")
-    fontes_status = {
-        "Google/Serper":  bool(SERPER_KEY),
-        "Apollo (avançado)": bool(APOLLO_KEY),
-        "BuiltWith":      bool(BUILTWITH_KEY),
-        "SimilarWeb":     bool(SIMILARWEB_KEY),
-        "ProductHunt":    bool(PRODUCTHUNT_TOKEN),
-        "GitHub":         bool(GITHUB_TOKEN),
-        "ABSTARTUPS":     True,
-        "CNPJ.ws":        True,
-        "CNAE/Receita":   True,
-        "Portfólios Aceleradoras": True,
-    }
-    for nome_api, ativa in fontes_status.items():
-        if nome_api == "GitHub" and not GITHUB_TOKEN:
-            st.markdown(f"🟡 GitHub (público, rate limitado)", unsafe_allow_html=True)
-        else:
-            icon = "🟢" if ativa else "⚪"
-            st.markdown(f"{icon} {nome_api}", unsafe_allow_html=True)
-
-    # Mostra fontes do ecossistema
-    with st.expander(f"🏢 Ecossistema ({len(FONTES_ECOSSISTEMA)} fontes)"):
-        for f in FONTES_ECOSSISTEMA:
-            st.markdown(f"<span style='font-size:0.8em;color:#6b7280;'>· {f['nome']}</span>",
-                        unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # Campo para fontes extras do analista
-    st.markdown("#### Fontes Extras")
-    st.caption("Sites adicionais para buscar (um por linha)")
     fontes_extras_input = st.text_area(
-        "Domínios extras",
-        placeholder="Ex:\ncubonetwork.com\naceleradora.com.br\noutrosite.com",
-        height=100,
+        "Fontes extras",
+        placeholder="Sites adicionais (um por linha)\ncubonetwork.com\naceleradora.com.br",
+        height=80,
         label_visibility="collapsed",
         key="fontes_extras_input"
     )
-    # Processa input do analista
     if fontes_extras_input:
         _fontes = [l.strip() for l in fontes_extras_input.strip().split("\n") if l.strip()]
         st.session_state.fontes_extras = _fontes
-        st.caption(f"✓ {len(_fontes)} fonte(s) extra(s) configurada(s)")
+        st.caption(f"✓ {len(_fontes)} fonte(s) extra(s)")
     else:
         st.session_state.fontes_extras = []
 
@@ -2197,6 +2166,49 @@ with col_lateral:
         st.session_state.mensagens = []
         st.session_state.aguardando_confirmacao = None
         st.rerun()
+
+    # ── Painel Admin (só para admins) ──
+    usuario_atual = st.session_state.get("usuario_atual", {})
+    if usuario_atual.get("papel") == "admin":
+        st.markdown("---")
+        with st.expander("⚙️ Painel Admin"):
+            admin_tab1, admin_tab2, admin_tab3 = st.tabs(["Fontes", "Ecossistema", "Status"])
+
+            with admin_tab1:
+                st.markdown('<p style="font-size:0.75em;font-weight:600;color:#9ca3af;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:8px;">APIs configuradas</p>', unsafe_allow_html=True)
+                fontes_status = {
+                    "Google/Serper":  bool(SERPER_KEY),
+                    "Apollo":         bool(APOLLO_KEY),
+                    "BuiltWith":      bool(BUILTWITH_KEY),
+                    "SimilarWeb":     bool(SIMILARWEB_KEY),
+                    "ProductHunt":    bool(PRODUCTHUNT_TOKEN),
+                    "GitHub":         bool(GITHUB_TOKEN),
+                    "ABSTARTUPS":     True,
+                    "CNPJ.ws":        True,
+                    "CNAE/Receita":   True,
+                    "Aceleradoras":   True,
+                }
+                for nome_api, ativa in fontes_status.items():
+                    if nome_api == "GitHub" and not GITHUB_TOKEN:
+                        st.markdown(f"<span style='font-size:0.82em;'>🟡 {nome_api} (rate limitado)</span>", unsafe_allow_html=True)
+                    else:
+                        icon = "🟢" if ativa else "🔴"
+                        st.markdown(f"<span style='font-size:0.82em;'>{icon} {nome_api}</span>", unsafe_allow_html=True)
+
+            with admin_tab2:
+                st.markdown(f'<p style="font-size:0.75em;font-weight:600;color:#9ca3af;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:8px;">{len(FONTES_ECOSSISTEMA)} fontes ativas</p>', unsafe_allow_html=True)
+                for f in FONTES_ECOSSISTEMA:
+                    tipo_badge = {"diretorio": "📂", "aceleradora": "🚀", "investidor": "💰", "regional": "📍"}.get(f["tipo"], "·")
+                    st.markdown(f"<span style='font-size:0.78em;color:#6b7280;'>{tipo_badge} {f['nome']}</span>", unsafe_allow_html=True)
+
+            with admin_tab3:
+                st.markdown('<p style="font-size:0.75em;font-weight:600;color:#9ca3af;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:8px;">Sessão</p>', unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size:0.82em;'>Buscas nesta sessão: **{st.session_state.busca_count}/{MAX_BUSCAS_POR_SESSAO}**</span>", unsafe_allow_html=True)
+                hist_count = len(hist) if not hist.empty else 0
+                st.markdown(f"<span style='font-size:0.82em;'>Startups no histórico: **{hist_count}**</span>", unsafe_allow_html=True)
+                gsheet_ok = conectar_gsheets() is not None
+                gsheet_icon = "🟢" if gsheet_ok else "🔴"
+                st.markdown(f"<span style='font-size:0.82em;'>{gsheet_icon} Google Sheets: {'conectado' if gsheet_ok else 'desconectado'}</span>", unsafe_allow_html=True)
 
 # ─── ÁREA DE CHAT ───
 with col_chat:
