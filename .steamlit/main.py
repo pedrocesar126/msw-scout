@@ -2299,7 +2299,10 @@ with col_lateral:
                 st.markdown(f"<span style='font-size:0.82em;'>Buscas nesta sessão: **{st.session_state.busca_count}/{MAX_BUSCAS_POR_SESSAO}**</span>", unsafe_allow_html=True)
                 hist_count = len(hist) if not hist.empty else 0
                 st.markdown(f"<span style='font-size:0.82em;'>Startups no histórico: **{hist_count}**</span>", unsafe_allow_html=True)
-                gsheet_ok = conectar_gsheets() is not None
+                try:
+                    gsheet_ok = conectar_gsheets() is not None
+                except Exception:
+                    gsheet_ok = False
                 gsheet_icon = "🟢" if gsheet_ok else "🔴"
                 st.markdown(f"<span style='font-size:0.82em;'>{gsheet_icon} Google Sheets: {'conectado' if gsheet_ok else 'desconectado'}</span>", unsafe_allow_html=True)
 
