@@ -54,6 +54,91 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ─────────────────────────────────────────
+# AUTENTICAÇÃO — Login por usuário e senha
+# ─────────────────────────────────────────
+def carregar_usuarios():
+    """Carrega usuários dos Streamlit Secrets ou variáveis de ambiente."""
+    usuarios = {}
+    try:
+        if hasattr(st, 'secrets') and "usuarios" in st.secrets:
+            for user, dados in st.secrets["usuarios"].items():
+                usuarios[user] = {
+                    "senha": dados["senha"],
+                    "nome": dados.get("nome", user),
+                    "papel": dados.get("papel", "analista"),
+                }
+            return usuarios
+    except Exception:
+        pass
+    senha_unica = os.getenv("APP_PASSWORD", "")
+    if senha_unica:
+        usuarios["admin"] = {"senha": senha_unica, "nome": "Admin", "papel": "admin"}
+    return usuarios
+
+def tela_login():
+    """Exibe tela de login e retorna True se autenticado."""
+    if "autenticado" not in st.session_state:
+        st.session_state.autenticado = False
+        st.session_state.usuario_atual = None
+
+    if st.session_state.autenticado:
+        return True
+
+    usuarios = carregar_usuarios()
+    if not usuarios:
+        st.session_state.autenticado = True
+        st.session_state.usuario_atual = {"nome": "Dev", "papel": "admin"}
+        return True
+
+    st.markdown("""
+    <style>
+    .login-title {
+        font-family: 'Inter', sans-serif;
+        color: #111827;
+        font-size: 1.6em;
+        font-weight: 600;
+        text-align: center;
+        margin-bottom: 4px;
+    }
+    .login-subtitle {
+        font-family: 'Inter', sans-serif;
+        color: #9ca3af;
+        font-size: 0.9em;
+        text-align: center;
+        margin-bottom: 24px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
+        st.markdown('<div class="login-title">MSW Capital</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Agente de originação — Acesso restrito</div>', unsafe_allow_html=True)
+
+        with st.form("login_form"):
+            usuario_input = st.text_input("Usuário", placeholder="seu.usuario")
+            senha_input = st.text_input("Senha", type="password", placeholder="••••••••")
+            submit = st.form_submit_button("Entrar", use_container_width=True)
+
+        if submit:
+            if usuario_input in usuarios and usuarios[usuario_input]["senha"] == senha_input:
+                st.session_state.autenticado = True
+                st.session_state.usuario_atual = {
+                    "nome": usuarios[usuario_input]["nome"],
+                    "papel": usuarios[usuario_input]["papel"],
+                    "usuario": usuario_input,
+                }
+                st.rerun()
+            else:
+                st.error("Usuário ou senha incorretos.")
+
+    return False
+
+# ── Bloqueia acesso sem login ──
+if not tela_login():
+    st.stop()
+
 if not ANTHROPIC_KEY:
     st.error("⚠️ `ANTHROPIC_API_KEY` não configurada. Configure no arquivo `.env` e reinicie.")
     st.stop()
@@ -2135,6 +2220,14 @@ col_chat, col_lateral = st.columns([3, 1])
 
 # ─── PAINEL LATERAL ───
 with col_lateral:
+    # Logout
+    if st.button("Sair", use_container_width=True, key="btn_logout"):
+        st.session_state.autenticado = False
+        st.session_state.usuario_atual = None
+        st.session_state.mensagens = []
+        st.rerun()
+
+    st.markdown("---")
     st.markdown("#### Arquivo Geral")
     hist = carregar_historico()
     if not hist.empty:
