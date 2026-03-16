@@ -2347,13 +2347,21 @@ iniciais = "".join([p[0].upper() for p in nome_usuario.split()[:2]]) if nome_usu
 
 import base64 as _b64
 
-# Carrega logo MSW se disponível
+# Carrega logo MSW se disponível (busca em múltiplos caminhos)
 _logo_html = '<div class="app-logo">MSW</div>'
-_logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo_msw_png.jpg")
-if os.path.exists(_logo_path):
-    with open(_logo_path, "rb") as _f:
-        _logo_b64 = _b64.b64encode(_f.read()).decode()
-    _logo_html = f'<img src="data:image/jpeg;base64,{_logo_b64}" style="height:38px;border-radius:6px;" />'
+_logo_candidatos = [
+    "logo_msw_png.jpg",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo_msw_png.jpg"),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "logo_msw_png.jpg"),
+    "/mount/src/msw-scout/logo_msw_png.jpg",
+    "/mount/src/msw-scout/.steamlit/logo_msw_png.jpg",
+]
+for _lp in _logo_candidatos:
+    if os.path.exists(_lp):
+        with open(_lp, "rb") as _f:
+            _logo_b64 = _b64.b64encode(_f.read()).decode()
+        _logo_html = f'<img src="data:image/jpeg;base64,{_logo_b64}" style="height:38px;border-radius:6px;" />'
+        break
 
 st.markdown(f"""
 <div class="app-header">
