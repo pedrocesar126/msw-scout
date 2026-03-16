@@ -113,8 +113,8 @@ def tela_login():
         return True
 
     st.markdown("""<style>
-    .login-title { font-family: 'Inter', sans-serif; color: #111827; font-size: 1.6em; font-weight: 600; text-align: center; margin-bottom: 4px; }
-    .login-subtitle { font-family: 'Inter', sans-serif; color: #9ca3af; font-size: 0.9em; text-align: center; margin-bottom: 24px; }
+    .login-title { font-family: 'Plus Jakarta Sans', sans-serif; color: #F1F5F9; font-size: 1.6em; font-weight: 600; text-align: center; margin-bottom: 4px; }
+    .login-subtitle { font-family: 'Plus Jakarta Sans', sans-serif; color: #64748B; font-size: 0.9em; text-align: center; margin-bottom: 24px; }
     </style>""", unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 1.2, 1])
@@ -146,77 +146,127 @@ if not SERPER_KEY:
 client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
 
 # ─────────────────────────────────────────
-# 2. ESTILO VISUAL — Clean Corporate
+# 2. ESTILO VISUAL — MSW Dark Navy
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
 html, body, [class*="css"] {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: #fafafa;
-    color: #111827;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: #070E18;
+    color: #CBD5E1;
 }
-.stApp { background-color: #fafafa; }
-h1, h2, h3 { font-family: 'Inter', sans-serif; font-weight: 600; color: #111827; letter-spacing: -0.02em; }
+.stApp { background-color: #070E18; }
+h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; color: #F1F5F9; letter-spacing: -0.02em; }
 
+/* Botões */
 .stButton>button {
-    border-radius: 8px; background-color: #ffffff; color: #374151; font-weight: 500;
-    font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb;
+    border-radius: 8px; background-color: #111D2E; color: #94A3B8; font-weight: 500;
+    font-family: 'Plus Jakarta Sans', sans-serif; border: 1px solid rgba(255,255,255,0.08);
     transition: all 0.15s ease; font-size: 0.85em; padding: 6px 16px;
 }
-.stButton>button:hover { background-color: #f9fafb; border-color: #d1d5db; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-.stFormSubmitButton>button { background-color: #1e40af; color: #ffffff; border: 1px solid #1e40af; }
-.stFormSubmitButton>button:hover { background-color: #1e3a8a; }
+.stButton>button:hover { background-color: #1B3A5C; color: #F1F5F9; border-color: rgba(91,164,217,0.3); }
+.stFormSubmitButton>button { background-color: #1B3A5C; color: #5BA4D9; border: 1px solid rgba(91,164,217,0.3); }
+.stFormSubmitButton>button:hover { background-color: #234B6E; color: #7BBCE6; }
 
+/* Cards de startup */
 .startup-card {
-    background: #ffffff; border: 1px solid #f3f4f6; border-radius: 10px;
+    background: #0B1A2E; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;
     padding: 18px 22px; margin-bottom: 12px; transition: all 0.15s ease;
 }
-.startup-card:hover { border-color: #e5e7eb; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.startup-card:hover { border-color: rgba(91,164,217,0.2); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
 
+/* Pills */
 .metric-pill {
-    display: inline-block; background: #f0f9ff; border: 1px solid #e0f2fe; color: #0369a1;
-    padding: 3px 12px; border-radius: 20px; font-size: 0.76em; font-weight: 500; margin: 3px 4px 0 0;
+    display: inline-block; background: rgba(91,164,217,0.1); border: 1px solid rgba(91,164,217,0.15);
+    color: #5BA4D9; padding: 3px 12px; border-radius: 20px; font-size: 0.76em; font-weight: 500; margin: 3px 4px 0 0;
 }
 .founder-pill {
-    display: inline-block; background: #f0fdf4; border: 1px solid #dcfce7; color: #166534;
-    padding: 3px 12px; border-radius: 20px; font-size: 0.76em; font-weight: 500; margin: 3px 4px 0 0;
+    display: inline-block; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.15);
+    color: #34D399; padding: 3px 12px; border-radius: 20px; font-size: 0.76em; font-weight: 500; margin: 3px 4px 0 0;
 }
 .fonte-pill {
-    display: inline-block; background: #fffbeb; border: 1px solid #fef3c7; color: #92400e;
-    padding: 3px 12px; border-radius: 20px; font-size: 0.72em; font-weight: 500; margin: 3px 4px 0 0;
+    display: inline-block; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.15);
+    color: #FBBF24; padding: 3px 12px; border-radius: 20px; font-size: 0.72em; font-weight: 500; margin: 3px 4px 0 0;
 }
 .erro-pill {
-    display: inline-block; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
-    padding: 3px 12px; border-radius: 20px; font-size: 0.76em; font-weight: 500; margin: 3px 4px 0 0;
+    display: inline-block; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.15);
+    color: #F87171; padding: 3px 12px; border-radius: 20px; font-size: 0.76em; font-weight: 500; margin: 3px 4px 0 0;
 }
+
+/* Boas-vindas */
 .boas-vindas {
-    background: #ffffff; border: 1px solid #f3f4f6; border-radius: 12px;
-    padding: 24px 28px; margin-bottom: 16px;
+    background: rgba(91,164,217,0.05); border: 1px solid rgba(91,164,217,0.1);
+    border-radius: 12px; padding: 24px 28px; margin-bottom: 16px;
 }
+
+/* Header de fase (durante busca) */
 .fase-header {
-    background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 8px;
-    padding: 10px 16px; margin: 12px 0 8px 0; font-size: 0.85em; color: #374151; font-weight: 500;
+    background: #0B1A2E; border: 1px solid rgba(91,164,217,0.12); border-radius: 8px;
+    padding: 10px 16px; margin: 12px 0 8px 0; font-size: 0.85em; color: #5BA4D9; font-weight: 500;
 }
+
+/* Header do app */
 .app-header {
     display: flex; align-items: center; gap: 14px;
-    padding: 4px 0 16px 0; border-bottom: 1px solid #f3f4f6; margin-bottom: 20px;
+    padding: 4px 0 16px 0; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 20px;
 }
 .app-logo {
-    width: 36px; height: 36px; background: #1e40af; border-radius: 10px;
+    width: 36px; height: 36px; background: #1B3A5C; border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 600; color: #ffffff; flex-shrink: 0;
+    font-size: 10px; font-weight: 700; color: #5BA4D9; letter-spacing: 0.5px; flex-shrink: 0;
 }
-.app-title { font-size: 1.15em; font-weight: 600; color: #111827; margin: 0; letter-spacing: -0.02em; }
-.app-subtitle { font-size: 0.8em; color: #9ca3af; margin: 2px 0 0 0; font-weight: 400; }
+.app-title { font-size: 1.15em; font-weight: 600; color: #F1F5F9; margin: 0; letter-spacing: -0.01em; }
+.app-subtitle { font-size: 0.8em; color: #64748B; margin: 2px 0 0 0; font-weight: 400; }
 .user-avatar {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 30px; height: 30px; background: #eff6ff; border-radius: 50%;
-    font-size: 11px; font-weight: 600; color: #1e40af;
+    width: 30px; height: 30px; background: #1B3A5C; border-radius: 50%;
+    font-size: 11px; font-weight: 600; color: #5BA4D9;
 }
-section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #f3f4f6; }
-hr { border: none; border-top: 1px solid #f3f4f6; margin: 16px 0; }
+
+/* Sidebar */
+section[data-testid="stSidebar"] { background-color: #0B1A2E; border-right: 1px solid rgba(255,255,255,0.06); }
+
+/* Dividers */
+hr { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0; }
+
+/* Chat messages */
+[data-testid="stChatMessage"] { background-color: #0B1A2E; border: 1px solid rgba(255,255,255,0.04); border-radius: 10px; }
+
+/* Chat input */
+[data-testid="stChatInput"] textarea { background-color: #0B1A2E !important; color: #CBD5E1 !important; border-color: rgba(255,255,255,0.08) !important; }
+[data-testid="stChatInput"] { background-color: #0B1A2E; border-color: rgba(255,255,255,0.08); border-radius: 10px; }
+
+/* Text input */
+.stTextInput input, .stTextArea textarea { background-color: #111D2E !important; color: #CBD5E1 !important; border-color: rgba(255,255,255,0.08) !important; }
+
+/* Dataframe */
+.stDataFrame { border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); }
+[data-testid="stDataFrame"] th { background-color: #111D2E !important; color: #94A3B8 !important; }
+[data-testid="stDataFrame"] td { background-color: #0B1A2E !important; color: #CBD5E1 !important; }
+
+/* Expander */
+[data-testid="stExpander"] { background-color: #0B1A2E; border-color: rgba(255,255,255,0.06); }
+[data-testid="stExpander"] summary { color: #94A3B8; }
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] { background-color: transparent; }
+.stTabs [data-baseweb="tab"] { color: #64748B; }
+.stTabs [aria-selected="true"] { color: #5BA4D9; }
+
+/* Markdown text */
+.stMarkdown p, .stMarkdown li { color: #CBD5E1; }
+.stCaption p { color: #64748B !important; }
+
+/* Info/Warning boxes */
+[data-testid="stAlert"] { background-color: #111D2E; border-color: rgba(91,164,217,0.2); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #070E18; }
+::-webkit-scrollbar-thumb { background: #1B3A5C; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #234B6E; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -2306,29 +2356,29 @@ def renderizar_card(startup):
 <div class="startup-card">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
         <div>
-            <strong style="font-size:1.05em;">{nome}</strong>
-            <span style="color:#6b7280;font-size:0.8em;margin-left:8px;">{maturidade}</span>
+            <strong style="font-size:1.05em;color:#F1F5F9;">{nome}</strong>
+            <span style="color:#64748B;font-size:0.8em;margin-left:8px;">{maturidade}</span>
         </div>
         <div>{fonte_badge}</div>
     </div>
 
     <div style="margin-bottom:6px;">
-        <a href="{site_url}" target="_blank" rel="noopener noreferrer" style="color:#1a56db;font-size:0.82em;">
+        <a href="{site_url}" target="_blank" rel="noopener noreferrer" style="color:#5BA4D9;font-size:0.82em;">
             🌐 {site_display}
         </a>
     </div>
 
-    <div style="font-size:0.92em;margin-bottom:6px;color:#374151;">
+    <div style="font-size:0.92em;margin-bottom:6px;color:#94A3B8;">
         {descricao}
     </div>
 
     <div style="margin-bottom:8px;">{fundadores_html}</div>
 
-    <div style="color:#1a56db;font-size:0.85em;margin-bottom:4px;">
+    <div style="color:#5BA4D9;font-size:0.85em;margin-bottom:4px;">
         📈 <strong>Tração:</strong> {tracao}
     </div>
 
-    <div style="color:#166534;font-size:0.85em;margin-bottom:8px;">
+    <div style="color:#34D399;font-size:0.85em;margin-bottom:8px;">
         🎯 <strong>Fit com tese:</strong> {fit_tese}
     </div>
 
@@ -2347,14 +2397,14 @@ iniciais = "".join([p[0].upper() for p in nome_usuario.split()[:2]]) if nome_usu
 
 st.markdown(f"""
 <div class="app-header">
-    <div class="app-logo">M</div>
+    <div class="app-logo">MSW</div>
     <div style="flex:1;">
         <p class="app-title">MSW Capital</p>
         <p class="app-subtitle">Agente de originação de startups</p>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
         <span class="user-avatar">{iniciais}</span>
-        <span style="font-size:0.82em;color:#6b7280;">{sanitizar(nome_usuario)}</span>
+        <span style="font-size:0.82em;color:#64748B;">{sanitizar(nome_usuario)}</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -2435,8 +2485,8 @@ with col_chat:
         saudacao = f"Olá, {nome_bv}." if nome_bv else "Olá."
         st.markdown(f"""
         <div class="boas-vindas">
-            <p style="font-size:1.05em;font-weight:500;color:#111827;margin:0 0 8px 0;">{saudacao}</p>
-            <p style="color:#6b7280;font-size:0.9em;margin:0;line-height:1.6;">
+            <p style="font-size:1.05em;font-weight:500;color:#F1F5F9;margin:0 0 8px 0;">{saudacao}</p>
+            <p style="color:#94A3B8;font-size:0.9em;margin:0;line-height:1.6;">
                 Descreva o perfil de startup que deseja mapear — mercado, tecnologia, estágio, 
                 perfil de fundador, região — e eu conduzo a busca em múltiplas fontes.
             </p>
