@@ -2345,9 +2345,19 @@ usuario_info = st.session_state.get("usuario_atual", {})
 nome_usuario = usuario_info.get("nome", "")
 iniciais = "".join([p[0].upper() for p in nome_usuario.split()[:2]]) if nome_usuario else "U"
 
+import base64 as _b64
+
+# Carrega logo MSW se disponível
+_logo_html = '<div class="app-logo">MSW</div>'
+_logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo_msw_png.jpg")
+if os.path.exists(_logo_path):
+    with open(_logo_path, "rb") as _f:
+        _logo_b64 = _b64.b64encode(_f.read()).decode()
+    _logo_html = f'<img src="data:image/jpeg;base64,{_logo_b64}" style="height:38px;border-radius:6px;" />'
+
 st.markdown(f"""
 <div class="app-header">
-    <div class="app-logo">MSW</div>
+    {_logo_html}
     <div style="flex:1;">
         <p class="app-title">MSW Capital</p>
         <p class="app-subtitle">Agente de originação de startups</p>
