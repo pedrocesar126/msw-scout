@@ -50,6 +50,33 @@ GITHUB_TOKEN      = os.getenv("GITHUB_TOKEN")
 HISTORICO_FILE    = "historico_msw.csv"
 MAX_BUSCAS_POR_SESSAO = int(os.getenv("MAX_BUSCAS_POR_SESSAO", "10"))
 
+# ── Google Sheets ──
+GSHEET_ID = "1JzAv71ayieqYS-OlV5gx2185bdQiIy5NI7tJmbPTItE"
+GSHEET_COLUNAS = [
+    "Startup", "Site", "Setor", "Sub_Setor", "Maturidade",
+    "Score_MSW", "Descricao", "Fundadores", "Sinais_Tração",
+    "Data_Abertura", "Headcount", "Stack_Enterprise",
+    "Fonte_Descoberta", "Data_Descoberta"
+]
+
+def conectar_gsheets():
+    """Conecta ao Google Sheets via conta de serviço."""
+    try:
+        if hasattr(st, 'secrets') and "gcp_service_account" in st.secrets:
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            creds = Credentials.from_service_account_info(
+                creds_dict,
+                scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+            )
+            gc = gspread.authorize(creds)
+            return gc.open_by_key(GSHEET_ID).sheet1
+        else:
+            logger.warning("Credenciais Google Sheets não configuradas nos Secrets.")
+            return None
+    except Exception as e:
+        logger.error(f"Erro ao conectar Google Sheets: {e}", exc_info=True)
+        return None
+
 st.set_page_config(
     page_title="MSW Capital — Agente de Originação",
     layout="wide",
