@@ -50,38 +50,8 @@ GITHUB_TOKEN      = os.getenv("GITHUB_TOKEN")
 HISTORICO_FILE    = "historico_msw.csv"
 MAX_BUSCAS_POR_SESSAO = int(os.getenv("MAX_BUSCAS_POR_SESSAO", "10"))
 
-# ── Google Sheets ──
-GSHEET_ID = "1JzAv71ayieqYS-OlV5gx2185bdQiIy5NI7tJmbPTItE"
-GSHEET_COLUNAS = [
-    "Startup", "Site", "Setor", "Sub_Setor", "Maturidade",
-    "Score_MSW", "Descricao", "Fundadores", "Sinais_Tração",
-    "Data_Abertura", "Headcount", "Stack_Enterprise",
-    "Fonte_Descoberta", "Data_Descoberta"
-]
-
-def conectar_gsheets():
-    """Conecta ao Google Sheets via conta de serviço."""
-    try:
-        if hasattr(st, 'secrets') and "gcp_service_account" in st.secrets:
-            creds_dict = dict(st.secrets["gcp_service_account"])
-            creds = Credentials.from_service_account_info(
-                creds_dict,
-                scopes=[
-                    "https://www.googleapis.com/auth/spreadsheets",
-                    "https://www.googleapis.com/auth/drive",
-                ]
-            )
-            gc = gspread.authorize(creds)
-            return gc.open_by_key(GSHEET_ID).sheet1
-        else:
-            logger.warning("Credenciais Google Sheets não configuradas nos Secrets.")
-            return None
-    except Exception as e:
-        logger.error(f"Erro ao conectar Google Sheets: {e}", exc_info=True)
-        return None
-
 st.set_page_config(
-    page_title="MSW Capital — Intelligence Hub",
+    page_title="MSW Capital — Agente de Originação",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -90,16 +60,11 @@ st.set_page_config(
 # AUTENTICAÇÃO — Login por usuário e senha
 # ─────────────────────────────────────────
 def carregar_usuarios():
-    """Carrega usuários dos Streamlit Secrets ou variáveis de ambiente."""
     usuarios = {}
     try:
         if hasattr(st, 'secrets') and "usuarios" in st.secrets:
             for user, dados in st.secrets["usuarios"].items():
-                usuarios[user] = {
-                    "senha": dados["senha"],
-                    "nome": dados.get("nome", user),
-                    "papel": dados.get("papel", "analista"),
-                }
+                usuarios[user] = {"senha": dados["senha"], "nome": dados.get("nome", user), "papel": dados.get("papel", "analista")}
             return usuarios
     except Exception:
         pass
@@ -109,65 +74,39 @@ def carregar_usuarios():
     return usuarios
 
 def tela_login():
-    """Exibe tela de login e retorna True se autenticado."""
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
         st.session_state.usuario_atual = None
-
     if st.session_state.autenticado:
         return True
-
     usuarios = carregar_usuarios()
     if not usuarios:
         st.session_state.autenticado = True
         st.session_state.usuario_atual = {"nome": "Dev", "papel": "admin"}
         return True
 
-    st.markdown("""
-    <style>
-    .login-title {
-        font-family: 'Inter', sans-serif;
-        color: #111827;
-        font-size: 1.6em;
-        font-weight: 600;
-        text-align: center;
-        margin-bottom: 4px;
-    }
-    .login-subtitle {
-        font-family: 'Inter', sans-serif;
-        color: #9ca3af;
-        font-size: 0.9em;
-        text-align: center;
-        margin-bottom: 24px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown("""<style>
+    .login-title { font-family: 'Inter', sans-serif; color: #111827; font-size: 1.6em; font-weight: 600; text-align: center; margin-bottom: 4px; }
+    .login-subtitle { font-family: 'Inter', sans-serif; color: #9ca3af; font-size: 0.9em; text-align: center; margin-bottom: 24px; }
+    </style>""", unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
         st.markdown('<div class="login-title">MSW Capital</div>', unsafe_allow_html=True)
         st.markdown('<div class="login-subtitle">Agente de originação — Acesso restrito</div>', unsafe_allow_html=True)
-
         with st.form("login_form"):
             usuario_input = st.text_input("Usuário", placeholder="seu.usuario")
             senha_input = st.text_input("Senha", type="password", placeholder="••••••••")
             submit = st.form_submit_button("Entrar", use_container_width=True)
-
         if submit:
             if usuario_input in usuarios and usuarios[usuario_input]["senha"] == senha_input:
                 st.session_state.autenticado = True
-                st.session_state.usuario_atual = {
-                    "nome": usuarios[usuario_input]["nome"],
-                    "papel": usuarios[usuario_input]["papel"],
-                    "usuario": usuario_input,
-                }
+                st.session_state.usuario_atual = {"nome": usuarios[usuario_input]["nome"], "papel": usuarios[usuario_input]["papel"], "usuario": usuario_input}
                 st.rerun()
             else:
                 st.error("Usuário ou senha incorretos.")
-
     return False
 
-# ── Bloqueia acesso sem login ──
 if not tela_login():
     st.stop()
 
@@ -180,110 +119,77 @@ if not SERPER_KEY:
 client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
 
 # ─────────────────────────────────────────
-# 2. ESTILO VISUAL
+# 2. ESTILO VISUAL — Clean Corporate
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
 html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-    background-color: #f5f7fb;
-    color: #1a1a2e;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: #fafafa;
+    color: #111827;
 }
-.stApp { background-color: #f5f7fb; }
-h1, h2, h3 { font-family: 'DM Serif Display', serif; color: #1a1a2e; }
+.stApp { background-color: #fafafa; }
+h1, h2, h3 { font-family: 'Inter', sans-serif; font-weight: 600; color: #111827; letter-spacing: -0.02em; }
 
 .stButton>button {
-    border-radius: 6px;
-    background-color: #1a56db;
-    color: #ffffff;
-    font-weight: 600;
-    font-family: 'DM Sans', sans-serif;
-    border: none;
-    transition: all 0.2s ease;
-    font-size: 0.85em;
+    border-radius: 8px; background-color: #ffffff; color: #374151; font-weight: 500;
+    font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb;
+    transition: all 0.15s ease; font-size: 0.85em; padding: 6px 16px;
 }
-.stButton>button:hover { background-color: #1e429f; }
+.stButton>button:hover { background-color: #f9fafb; border-color: #d1d5db; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.stFormSubmitButton>button { background-color: #1e40af; color: #ffffff; border: 1px solid #1e40af; }
+.stFormSubmitButton>button:hover { background-color: #1e3a8a; }
 
 .startup-card {
-    background: #ffffff;
-    border: 1px solid #dbeafe;
-    border-left: 4px solid #1a56db;
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin-bottom: 10px;
+    background: #ffffff; border: 1px solid #f3f4f6; border-radius: 10px;
+    padding: 18px 22px; margin-bottom: 12px; transition: all 0.15s ease;
 }
+.startup-card:hover { border-color: #e5e7eb; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
 
 .metric-pill {
-    display: inline-block;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    color: #1e40af;
-    padding: 2px 10px;
-    border-radius: 20px;
-    font-size: 0.76em;
-    margin: 2px 2px 0 0;
+    display: inline-block; background: #f0f9ff; border: 1px solid #e0f2fe; color: #0369a1;
+    padding: 3px 12px; border-radius: 20px; font-size: 0.76em; font-weight: 500; margin: 3px 4px 0 0;
 }
-
 .founder-pill {
-    display: inline-block;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #166534;
-    padding: 2px 10px;
-    border-radius: 20px;
-    font-size: 0.76em;
-    margin: 2px 2px 0 0;
+    display: inline-block; background: #f0fdf4; border: 1px solid #dcfce7; color: #166534;
+    padding: 3px 12px; border-radius: 20px; font-size: 0.76em; font-weight: 500; margin: 3px 4px 0 0;
 }
-
 .fonte-pill {
-    display: inline-block;
-    background: #fefce8;
-    border: 1px solid #fde68a;
-    color: #92400e;
-    padding: 2px 10px;
-    border-radius: 20px;
-    font-size: 0.72em;
-    margin: 2px 2px 0 0;
+    display: inline-block; background: #fffbeb; border: 1px solid #fef3c7; color: #92400e;
+    padding: 3px 12px; border-radius: 20px; font-size: 0.72em; font-weight: 500; margin: 3px 4px 0 0;
 }
-
 .erro-pill {
-    display: inline-block;
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    color: #c2410c;
-    padding: 2px 10px;
-    border-radius: 20px;
-    font-size: 0.76em;
-    margin: 2px 2px 0 0;
+    display: inline-block; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+    padding: 3px 12px; border-radius: 20px; font-size: 0.76em; font-weight: 500; margin: 3px 4px 0 0;
 }
-
 .boas-vindas {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin-bottom: 16px;
+    background: #ffffff; border: 1px solid #f3f4f6; border-radius: 12px;
+    padding: 24px 28px; margin-bottom: 16px;
 }
-
 .fase-header {
-    background: #f0f9ff;
-    border: 1px solid #bae6fd;
-    border-radius: 6px;
-    padding: 8px 14px;
-    margin: 10px 0 6px 0;
-    font-size: 0.88em;
-    color: #0369a1;
-    font-weight: 600;
+    background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 8px;
+    padding: 10px 16px; margin: 12px 0 8px 0; font-size: 0.85em; color: #374151; font-weight: 500;
 }
-
-section[data-testid="stSidebar"] {
-    background-color: #ffffff;
-    border-right: 1px solid #dbeafe;
+.app-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 4px 0 16px 0; border-bottom: 1px solid #f3f4f6; margin-bottom: 20px;
 }
-
-hr { border-color: #e5e7eb; }
+.app-logo {
+    width: 36px; height: 36px; background: #1e40af; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600; color: #ffffff; flex-shrink: 0;
+}
+.app-title { font-size: 1.15em; font-weight: 600; color: #111827; margin: 0; letter-spacing: -0.02em; }
+.app-subtitle { font-size: 0.8em; color: #9ca3af; margin: 2px 0 0 0; font-weight: 400; }
+.user-avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; background: #eff6ff; border-radius: 50%;
+    font-size: 11px; font-weight: 600; color: #1e40af;
+}
+section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #f3f4f6; }
+hr { border: none; border-top: 1px solid #f3f4f6; margin: 16px 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -675,12 +581,12 @@ def extrair_conteudo_site(url):
         return "Site não disponível."
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        response = requests.get(url, timeout=8, headers=headers)
+        response = requests.get(url, timeout=10, headers=headers)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            for s in soup(["script", "style", "nav", "footer"]):
+            for s in soup(["script", "style", "nav", "footer", "header", "noscript"]):
                 s.extract()
-            return " ".join(soup.get_text(separator=' ').split())[:2500]
+            return " ".join(soup.get_text(separator=' ').split())[:3000]
         logger.warning(f"Site {url} retornou status {response.status_code}")
     except requests.exceptions.Timeout:
         logger.warning(f"Timeout ao acessar site: {url}")
@@ -1465,18 +1371,31 @@ def buscar_tracao_similarweb(dominio):
         return {}
 
 
-def buscar_vagas_apollo(nome_empresa):
+def buscar_vagas_apollo(nome_empresa, dominio=""):
+    """Busca dados da empresa no Apollo. Prioriza domínio sobre nome."""
     if not APOLLO_KEY:
         return {"erro": "APOLLO_API_KEY não configurada no .env"}
     try:
         url = "https://api.apollo.io/api/v1/mixed_companies/search"
         headers = {"Content-Type": "application/json", "X-Api-Key": APOLLO_KEY}
-        payload = {
-            "q_organization_name": nome_empresa,
-            "organization_locations": ["Brazil"],
-            "page": 1, "per_page": 1
-        }
-        resp = requests.post(url, json=payload, headers=headers, timeout=8)
+
+        # Estratégia 1: busca por domínio (mais preciso)
+        if dominio:
+            resp = requests.post(url, json={"q_organization_domains": dominio, "page": 1, "per_page": 1}, headers=headers, timeout=8)
+            if resp.status_code == 200:
+                orgs = resp.json().get("organizations", [])
+                if orgs:
+                    org = orgs[0]
+                    return {
+                        "headcount": org.get("estimated_num_employees", 0),
+                        "linkedin_url": org.get("linkedin_url", ""),
+                        "setor_apollo": org.get("industry", ""),
+                        "ano_fundacao": org.get("founded_year", ""),
+                        "org_id": org.get("id", ""),
+                    }
+
+        # Estratégia 2: busca por nome (sem filtro de localização)
+        resp = requests.post(url, json={"q_organization_name": nome_empresa, "page": 1, "per_page": 3}, headers=headers, timeout=8)
         if resp.status_code == 401:
             return {"erro": "Apollo: chave inválida (401)"}
         if resp.status_code == 429:
@@ -1484,6 +1403,19 @@ def buscar_vagas_apollo(nome_empresa):
         if resp.status_code != 200:
             return {"erro": f"Apollo: erro HTTP {resp.status_code}"}
         orgs = resp.json().get("organizations", [])
+
+        # Match por domínio se disponível
+        if orgs and dominio:
+            for org in orgs:
+                org_domain = (org.get("primary_domain") or "").lower()
+                if dominio.lower() in org_domain or org_domain in dominio.lower():
+                    return {
+                        "headcount": org.get("estimated_num_employees", 0),
+                        "linkedin_url": org.get("linkedin_url", ""),
+                        "setor_apollo": org.get("industry", ""),
+                        "ano_fundacao": org.get("founded_year", ""),
+                        "org_id": org.get("id", ""),
+                    }
         if orgs:
             org = orgs[0]
             return {
@@ -1491,12 +1423,91 @@ def buscar_vagas_apollo(nome_empresa):
                 "linkedin_url": org.get("linkedin_url", ""),
                 "setor_apollo": org.get("industry", ""),
                 "ano_fundacao": org.get("founded_year", ""),
+                "org_id": org.get("id", ""),
             }
         return {}
     except requests.exceptions.Timeout:
         return {"erro": "Apollo: timeout"}
     except Exception as e:
         return {"erro": f"Apollo: {str(e)}"}
+
+
+def buscar_fundadores_apollo(nome_empresa, dominio=""):
+    """Busca fundadores e C-level via Apollo People Search."""
+    if not APOLLO_KEY:
+        return []
+    try:
+        url = "https://api.apollo.io/api/v1/mixed_people/search"
+        headers = {"Content-Type": "application/json", "X-Api-Key": APOLLO_KEY}
+        titulos = ["founder","co-founder","cofounder","ceo","cto","coo","cfo","cpo",
+                    "fundador","cofundador","sócio","sócio-fundador","diretor","chief","head","partner","owner"]
+        resultados = []
+
+        # Estratégia 1: por domínio
+        if dominio:
+            resp = requests.post(url, json={"q_organization_domains": dominio, "person_titles": titulos, "page": 1, "per_page": 5}, headers=headers, timeout=8)
+            if resp.status_code == 200:
+                resultados = resp.json().get("people", [])
+
+        # Estratégia 2: por nome
+        if not resultados:
+            resp = requests.post(url, json={"q_organization_name": nome_empresa, "person_titles": titulos, "page": 1, "per_page": 5}, headers=headers, timeout=8)
+            if resp.status_code == 200:
+                resultados = resp.json().get("people", [])
+
+        fundadores = []
+        for p in resultados[:4]:
+            nome = f"{p.get('first_name', '')} {p.get('last_name', '')}".strip()
+            if nome and len(nome) > 2:
+                fundadores.append({"nome": nome, "titulo": p.get("title", ""), "linkedin": p.get("linkedin_url", "")})
+        logger.info(f"Apollo People: {len(fundadores)} fundadores para {nome_empresa}")
+        return fundadores
+    except Exception as e:
+        logger.error(f"Erro Apollo People Search para {nome_empresa}: {e}")
+        return []
+
+
+def buscar_fundadores_serper(nome_empresa, dominio=""):
+    """Busca fundadores via Google (Serper) como fallback do Apollo."""
+    if not SERPER_KEY:
+        return []
+    try:
+        query = f'"{nome_empresa}" fundador OR founder OR CEO site:linkedin.com/in'
+        resp = requests.post("https://google.serper.dev/search",
+            json={"q": query, "gl": "br", "hl": "pt-br", "num": 5},
+            headers={"X-API-KEY": SERPER_KEY, "Content-Type": "application/json"}, timeout=8)
+        if resp.status_code != 200:
+            return []
+        fundadores = []
+        for r in resp.json().get("organic", [])[:3]:
+            link = r.get("link", "")
+            titulo = r.get("title", "")
+            if "linkedin.com/in/" in link:
+                nome_linkedin = titulo.split(" - ")[0].split(" | ")[0].strip()
+                cargo = titulo.split(" - ")[1].strip() if " - " in titulo else ""
+                if nome_linkedin and len(nome_linkedin) > 3:
+                    fundadores.append({"nome": nome_linkedin, "titulo": cargo, "linkedin": link})
+        logger.info(f"Serper LinkedIn: {len(fundadores)} fundadores para {nome_empresa}")
+        return fundadores
+    except Exception as e:
+        logger.error(f"Erro Serper LinkedIn para {nome_empresa}: {e}")
+        return []
+
+
+def _formatar_fundadores_apollo(fundadores):
+    """Formata lista de fundadores para o prompt."""
+    if not fundadores:
+        return "não identificados"
+    partes = []
+    for f in fundadores:
+        nome = f.get("nome", "")
+        titulo = f.get("titulo", "")
+        linkedin = f.get("linkedin", "")
+        if linkedin:
+            partes.append(f"{nome} — {titulo} ({linkedin})")
+        else:
+            partes.append(f"{nome} — {titulo}")
+    return " | ".join(partes)
 
 
 # ─────────────────────────────────────────
@@ -1547,24 +1558,16 @@ def _deduplicar_startups(df):
     """Deduplicação robusta: por nome normalizado E por domínio do site."""
     if df.empty:
         return df
-
-    # Cria chaves de deduplicação
     df = df.copy()
     df["_nome_norm"] = df["Startup"].astype(str).str.strip().str.lower()
     df["_dominio_norm"] = df["Site"].astype(str).apply(
         lambda x: extrair_dominio(x).lower() if x and x != "nan" else ""
     )
-
-    # Remove duplicatas por nome
     df = df.drop_duplicates(subset=["_nome_norm"], keep="first")
-
-    # Remove duplicatas por domínio (se não vazio)
     mask_com_dominio = df["_dominio_norm"] != ""
     df_com = df[mask_com_dominio].drop_duplicates(subset=["_dominio_norm"], keep="first")
     df_sem = df[~mask_com_dominio]
     df = pd.concat([df_com, df_sem], ignore_index=True)
-
-    # Remove colunas auxiliares
     df = df.drop(columns=["_nome_norm", "_dominio_norm"], errors="ignore")
     return df
 
@@ -1573,11 +1576,8 @@ def salvar_no_historico(novas_df):
     """Salva no Google Sheets (com fallback para CSV local). Deduplicação robusta."""
     hist_df = carregar_historico(force_reload=True)
     df_final = pd.concat([hist_df, novas_df], ignore_index=True)
-
-    # Deduplicação robusta por nome + domínio
     df_final = _deduplicar_startups(df_final)
 
-    # Garante que todas as colunas existem
     for col in GSHEET_COLUNAS:
         if col not in df_final.columns:
             df_final[col] = ""
@@ -1589,9 +1589,7 @@ def salvar_no_historico(novas_df):
         sheet = conectar_gsheets()
         if sheet:
             sheet.clear()
-            sheet.update(
-                [GSHEET_COLUNAS] + df_final.astype(str).values.tolist()
-            )
+            sheet.update([GSHEET_COLUNAS] + df_final.astype(str).values.tolist())
             st.session_state.historico_cache = df_final
             st.session_state.historico_cache_ts = time.time()
             logger.info(f"Histórico salvo no Google Sheets: {len(df_final)} empresas")
@@ -1651,10 +1649,13 @@ CRITÉRIOS ELIMINATÓRIOS:
 3. Parece estar no estágio solicitado? Rejeite empresas consolidadas ou que já captaram Series B+.
 
 EXTRAÇÃO DE FUNDADORES:
-Tente identificar os fundadores no conteúdo do site (seção "Sobre", "Team", "Equipe", "Founders").
-Para cada fundador encontrado, tente inferir ou localizar o perfil do LinkedIn.
+Prioridade de fontes para identificar fundadores:
+1. Dados do Apollo (campo "Fundadores/C-level identificados" acima) — USE ESTES SE DISPONÍVEIS
+2. Conteúdo do site (seções "Sobre", "Team", "Equipe", "Founders", "Quem Somos")
+3. Se nenhuma fonte trouxe nomes, retorne "Não identificados"
+Para cada fundador encontrado, inclua o perfil do LinkedIn se disponível.
 Formato esperado: "Nome Sobrenome (linkedin.com/in/perfil) | Nome2 Sobrenome2 (linkedin.com/in/perfil2)"
-Se não encontrar LinkedIn, retorne apenas o nome.
+Se não encontrar LinkedIn, retorne apenas o nome e cargo.
 
 CRITÉRIOS DE TRAÇÃO SILENCIOSA (para scoring interno):
 - Empresa jovem (< 5 anos) com capital social crescendo
@@ -1692,7 +1693,7 @@ def analisar_startup_com_claude(
 
     sinais_contexto = f"""
 <conteudo_site_externo url="{url}">
-{conteudo_site[:1500]}
+{conteudo_site[:2500]}
 </conteudo_site_externo>
 
 DADOS LEGAIS (CNPJ.ws):
@@ -1710,6 +1711,7 @@ DADOS DE TIME (Apollo):
 - Headcount estimado: {apollo_info.get('headcount', 'não disponível')}
 - Ano de fundação: {apollo_info.get('ano_fundacao', 'não disponível')}
 - LinkedIn empresa: {apollo_info.get('linkedin_url', 'não disponível')}
+- Fundadores/C-level identificados: {_formatar_fundadores_apollo(apollo_info.get('fundadores', []))}
 
 TRAÇÃO DE TRÁFEGO (SimilarWeb):
 - {sinal_sw or 'não disponível'}
@@ -1739,8 +1741,6 @@ Se PASSAR, retorne APENAS este JSON (sem texto antes ou depois):
     "Fit_Tese": "Por que essa startup se encaixa na tese da MSW em 2 linhas",
     "CNPJ": "{cnpj_info.get('cnpj', '')}",
     "Data_Abertura": "{cnpj_info.get('data_abertura', '')}",
-    "Capital_Social": "{cnpj_info.get('capital_social', '')}",
-    "Municipio": "{cnpj_info.get('municipio', '')}/{cnpj_info.get('uf', '')}",
     "Headcount": "{apollo_info.get('headcount', '')}",
     "Stack_Enterprise": "{', '.join(stack_info.get('stack_enterprise', []))}",
     "Fonte_Descoberta": "{fonte_descoberta}"
@@ -1975,8 +1975,15 @@ def enriquecer_e_analisar_candidato(
 
     cnpj_info = buscar_cnpj_info(nome_google, dominio) if apis["cnpj"] else {}
     stack_info = buscar_stack_tecnologica(dominio) if apis["builtwith"] else {}
-    apollo_info = buscar_vagas_apollo(nome_google) if apis["apollo"] else {}
+    apollo_info = buscar_vagas_apollo(nome_google, dominio) if apis["apollo"] else {}
     similarweb_info = buscar_tracao_similarweb(dominio) if apis["similarweb"] else {}
+
+    # Busca fundadores: Apollo primeiro, Serper como fallback
+    fundadores = buscar_fundadores_apollo(nome_google, dominio) if apis["apollo"] else []
+    if not fundadores:
+        fundadores = buscar_fundadores_serper(nome_google, dominio)
+    if fundadores:
+        apollo_info["fundadores"] = fundadores
 
     for fonte_api, info, chave in [
         ("Apollo", apollo_info, "Apollo"),
@@ -2082,7 +2089,7 @@ def executar_busca(params, status_ph):
     )
     candidatos_filtrados = pre_filtrar_candidatos(candidatos_brutos, vertical, detalhe)
 
-    # ── Deduplicação por URL normalizada ──
+    # ── Deduplicação por URL normalizada e nome ──
     vistas = set()
     candidatos_unicos = []
     for c in candidatos_filtrados:
@@ -2183,7 +2190,7 @@ def executar_busca(params, status_ph):
         if candidatos_expansao:
             # Filtra expansão (deduplicação + já mapeados + já encontrados nesta busca)
             urls_ja_encontradas = {normalizar_url(s.get("Site", "")) for s in novas_descobertas}
-            urls_ja_encontradas.update(dominios_existentes)
+            urls_ja_encontradas.update(ja_mapeados)
             urls_ja_encontradas.update(vistas)
 
             expansao_unicos = []
@@ -2249,15 +2256,10 @@ def renderizar_card(startup):
                 fundadores_html += f'<span class="founder-pill">👤 {sanitizar(parte)}</span> '
 
     pills = ""
-    muni = startup.get("Municipio", "")
-    if muni and muni not in ["/", "", "/"]:
-        pills += f'<span class="metric-pill">📍 {sanitizar(muni)}</span>'
     if startup.get("Headcount"):
         pills += f'<span class="metric-pill">👥 {sanitizar(startup["Headcount"])} pessoas</span>'
     if startup.get("Data_Abertura"):
         pills += f'<span class="metric-pill">📅 Aberta {sanitizar(startup["Data_Abertura"])}</span>'
-    if startup.get("Capital_Social"):
-        pills += f'<span class="metric-pill">💰 R$ {sanitizar(startup["Capital_Social"])}</span>'
     if startup.get("Stack_Enterprise"):
         pills += f'<span class="metric-pill">⚙️ {sanitizar(startup["Stack_Enterprise"])}</span>'
 
@@ -2312,27 +2314,28 @@ def renderizar_card(startup):
 # 14. INTERFACE
 # ─────────────────────────────────────────
 
-col_logo, col_titulo = st.columns([1, 6])
-with col_logo:
-    if os.path.exists("logo_msw.png"):
-        st.image("logo_msw.png", width=110)
-    else:
-        st.markdown("### MSW")
-with col_titulo:
-    st.markdown("## Agente de Originação MSW")
-    st.markdown(
-        "<span style='color:#6b7280;font-size:0.85em;'>Mapeamento ativo de startups early-stage · "
-        "Busca inteligente multi-fonte</span>",
-        unsafe_allow_html=True
-    )
+usuario_info = st.session_state.get("usuario_atual", {})
+nome_usuario = usuario_info.get("nome", "")
+iniciais = "".join([p[0].upper() for p in nome_usuario.split()[:2]]) if nome_usuario else "U"
 
-st.markdown("<hr>", unsafe_allow_html=True)
+st.markdown(f"""
+<div class="app-header">
+    <div class="app-logo">M</div>
+    <div style="flex:1;">
+        <p class="app-title">MSW Capital</p>
+        <p class="app-subtitle">Agente de originação de startups</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+        <span class="user-avatar">{iniciais}</span>
+        <span style="font-size:0.82em;color:#6b7280;">{sanitizar(nome_usuario)}</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 col_chat, col_lateral = st.columns([3, 1])
 
 # ─── PAINEL LATERAL ───
 with col_lateral:
-    # Logout
     if st.button("Sair", use_container_width=True, key="btn_logout"):
         st.session_state.autenticado = False
         st.session_state.usuario_atual = None
@@ -2343,21 +2346,17 @@ with col_lateral:
     st.markdown("#### Arquivo Geral")
     hist = carregar_historico()
     if not hist.empty:
-        st.caption(f"**{len(hist)}** empresas")
+        st.caption(f"**{len(hist)}** empresas mapeadas")
         colunas_display = ["Startup", "Descricao", "Setor"]
         colunas_display = [c for c in colunas_display if c in hist.columns]
-        st.dataframe(hist[colunas_display], width="stretch", hide_index=True)
+        st.dataframe(hist[colunas_display], use_container_width=True, hide_index=True)
     else:
-        st.caption("Nenhuma startup salva ainda.")
+        st.caption("Nenhuma startup mapeada ainda.")
 
-    # Fontes extras (mantido para funcionalidade, disponível para todos)
     st.markdown("---")
     fontes_extras_input = st.text_area(
-        "Fontes extras",
-        placeholder="Sites adicionais (um por linha)\ncubonetwork.com\naceleradora.com.br",
-        height=80,
-        label_visibility="collapsed",
-        key="fontes_extras_input"
+        "Fontes extras", placeholder="Sites adicionais (um por linha)\ncubonetwork.com\naceleradora.com.br",
+        height=80, label_visibility="collapsed", key="fontes_extras_input"
     )
     if fontes_extras_input:
         _fontes = [l.strip() for l in fontes_extras_input.strip().split("\n") if l.strip()]
@@ -2378,58 +2377,42 @@ with col_lateral:
         st.markdown("---")
         with st.expander("⚙️ Painel Admin"):
             admin_tab1, admin_tab2, admin_tab3 = st.tabs(["Fontes", "Ecossistema", "Status"])
-
             with admin_tab1:
-                st.markdown('<p style="font-size:0.75em;font-weight:600;color:#9ca3af;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:8px;">APIs configuradas</p>', unsafe_allow_html=True)
                 fontes_status = {
-                    "Google/Serper":  bool(SERPER_KEY),
-                    "Apollo":         bool(APOLLO_KEY),
-                    "BuiltWith":      bool(BUILTWITH_KEY),
-                    "SimilarWeb":     bool(SIMILARWEB_KEY),
-                    "ProductHunt":    bool(PRODUCTHUNT_TOKEN),
-                    "GitHub":         bool(GITHUB_TOKEN),
-                    "ABSTARTUPS":     True,
-                    "CNPJ.ws":        True,
-                    "CNAE/Receita":   True,
-                    "Aceleradoras":   True,
+                    "Google/Serper": bool(SERPER_KEY), "Apollo": bool(APOLLO_KEY),
+                    "BuiltWith": bool(BUILTWITH_KEY), "SimilarWeb": bool(SIMILARWEB_KEY),
+                    "ProductHunt": bool(PRODUCTHUNT_TOKEN), "GitHub": bool(GITHUB_TOKEN),
+                    "ABSTARTUPS": True, "CNPJ.ws": True, "CNAE/Receita": True, "Aceleradoras": True,
                 }
                 for nome_api, ativa in fontes_status.items():
-                    if nome_api == "GitHub" and not GITHUB_TOKEN:
-                        st.markdown(f"<span style='font-size:0.82em;'>🟡 {nome_api} (rate limitado)</span>", unsafe_allow_html=True)
-                    else:
-                        icon = "🟢" if ativa else "🔴"
-                        st.markdown(f"<span style='font-size:0.82em;'>{icon} {nome_api}</span>", unsafe_allow_html=True)
-
+                    icon = "🟢" if ativa else "🔴"
+                    st.markdown(f"<span style='font-size:0.82em;'>{icon} {nome_api}</span>", unsafe_allow_html=True)
             with admin_tab2:
-                st.markdown(f'<p style="font-size:0.75em;font-weight:600;color:#9ca3af;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:8px;">{len(FONTES_ECOSSISTEMA)} fontes ativas</p>', unsafe_allow_html=True)
                 for f in FONTES_ECOSSISTEMA:
                     tipo_badge = {"diretorio": "📂", "aceleradora": "🚀", "investidor": "💰", "regional": "📍"}.get(f["tipo"], "·")
                     st.markdown(f"<span style='font-size:0.78em;color:#6b7280;'>{tipo_badge} {f['nome']}</span>", unsafe_allow_html=True)
-
             with admin_tab3:
-                st.markdown('<p style="font-size:0.75em;font-weight:600;color:#9ca3af;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:8px;">Sessão</p>', unsafe_allow_html=True)
-                st.markdown(f"<span style='font-size:0.82em;'>Buscas nesta sessão: **{st.session_state.busca_count}/{MAX_BUSCAS_POR_SESSAO}**</span>", unsafe_allow_html=True)
-                hist_count = len(hist) if not hist.empty else 0
-                st.markdown(f"<span style='font-size:0.82em;'>Startups no histórico: **{hist_count}**</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size:0.82em;'>Buscas: **{st.session_state.busca_count}/{MAX_BUSCAS_POR_SESSAO}**</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size:0.82em;'>Histórico: **{len(hist) if not hist.empty else 0}** startups</span>", unsafe_allow_html=True)
                 try:
                     gsheet_ok = conectar_gsheets() is not None
                 except Exception:
                     gsheet_ok = False
-                gsheet_icon = "🟢" if gsheet_ok else "🔴"
-                st.markdown(f"<span style='font-size:0.82em;'>{gsheet_icon} Google Sheets: {'conectado' if gsheet_ok else 'desconectado'}</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size:0.82em;'>{'🟢' if gsheet_ok else '🔴'} Google Sheets</span>", unsafe_allow_html=True)
 
 # ─── ÁREA DE CHAT ───
 with col_chat:
 
     if not st.session_state.mensagens:
-        st.markdown("""
+        nome_bv = st.session_state.get("usuario_atual", {}).get("nome", "")
+        saudacao = f"Olá, {nome_bv}." if nome_bv else "Olá."
+        st.markdown(f"""
         <div class="boas-vindas">
-            <strong style="color:#1a56db;">Olá. Sou o agente de originação da MSW Capital.</strong><br>
-            <span style="color:#374151;font-size:0.95em;">
+            <p style="font-size:1.05em;font-weight:500;color:#111827;margin:0 0 8px 0;">{saudacao}</p>
+            <p style="color:#6b7280;font-size:0.9em;margin:0;line-height:1.6;">
                 Descreva o perfil de startup que deseja mapear — mercado, tecnologia, estágio, 
-                perfil de fundador, região — e eu conduzo a busca por você em múltiplas fontes
-                (Google, LinkedIn, GitHub, Apollo, ProductHunt, ABSTARTUPS, Receita Federal, portfólios de aceleradoras e mais).
-            </span>
+                perfil de fundador, região — e eu conduzo a busca em múltiplas fontes.
+            </p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -2490,7 +2473,6 @@ with col_chat:
                 st.markdown(intro)
 
                 status_ph = st.empty()
-                # Injeta fontes extras do analista nos parâmetros de busca
                 params["fontes_extras"] = st.session_state.get("fontes_extras", [])
                 startups, erros, erro_geral, filtrados_historico = executar_busca(params, status_ph)
                 status_ph.empty()
@@ -2498,7 +2480,6 @@ with col_chat:
                 st.session_state.busca_count += 1
                 st.session_state.aguardando_confirmacao = None
 
-                # Aviso de startups já mapeadas
                 if filtrados_historico > 0:
                     st.info(
                         f"📋 **{filtrados_historico} startup(s) já mapeada(s)** foram encontradas nesta busca "
@@ -2524,7 +2505,6 @@ with col_chat:
                     ts_str = datetime.now().strftime('%Y%m%d_%H%M')
                     startups_ord = sorted(startups, key=lambda x: int(x.get("Score_MSW") or 0), reverse=True)
 
-                    # Identifica quantas fontes diferentes contribuíram
                     fontes_unicas = set(s.get("Fonte_Descoberta", "") for s in startups_ord)
                     texto_resultado = (
                         f"Encontrei **{len(startups)} startup(s)** com perfil MSW, "
@@ -2542,14 +2522,10 @@ with col_chat:
                                 st.html(f'<span class="erro-pill">{sanitizar(fonte)}: {sanitizar(erro)}</span>')
 
                     st.session_state.mensagens.append({
-                        "role": "assistant",
-                        "tipo": "resultado",
-                        "content": texto_resultado,
-                        "texto_intro": texto_resultado,
-                        "startups": startups_ord,
-                        "erros": erros,
-                        "ts": time.time(),
-                        "ts_str": ts_str
+                        "role": "assistant", "tipo": "resultado",
+                        "content": texto_resultado, "texto_intro": texto_resultado,
+                        "startups": startups_ord, "erros": erros,
+                        "ts": time.time(), "ts_str": ts_str
                     })
 
             else:
